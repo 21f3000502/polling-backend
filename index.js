@@ -241,29 +241,71 @@ io.on('connection', (socket) => {
     socket.emit('participants', getParticipantsList());
   });
 
-  // HANDLE DISCONNECT
+  // // HANDLE DISCONNECT
+  // socket.on('disconnect', () => {
+  //   // Remove from participants and sessionIdMap
+  //   if (participants[socket.id]) {
+  //     const sessionId = participants[socket.id].sessionId;
+  //     delete sessionIdMap[sessionId];
+  //     delete participants[socket.id];
+  //     io.emit('participants', getParticipantsList());
+  //     // Check if all students have voted after removing
+  //     if (currentPoll && allStudentsVoted()) {
+  //       if (pollTimeout) clearTimeout(pollTimeout);
+  //       pollHistory.push({
+  //         question: currentPoll.question,
+  //         options: currentPoll.options,
+  //         votes: currentPoll.votes,
+  //         correctIndex: currentPoll.correctIndex
+  //       });
+  //       currentPoll = null;
+  //       io.emit('poll_ended');
+  //     }
+  //   }
+  //   delete teachers[socket.id];
+  // });
+
   socket.on('disconnect', () => {
-    // Remove from participants and sessionIdMap
-    if (participants[socket.id]) {
-      const sessionId = participants[socket.id].sessionId;
-      delete sessionIdMap[sessionId];
-      delete participants[socket.id];
-      io.emit('participants', getParticipantsList());
-      // Check if all students have voted after removing
-      if (currentPoll && allStudentsVoted()) {
-        if (pollTimeout) clearTimeout(pollTimeout);
-        pollHistory.push({
-          question: currentPoll.question,
-          options: currentPoll.options,
-          votes: currentPoll.votes,
-          correctIndex: currentPoll.correctIndex
-        });
-        currentPoll = null;
-        io.emit('poll_ended');
-      }
+  if (teachers[socket.id]) {
+    // Teacher disconnected → simulate session close
+    io.emit('session_closed');
+    participants = {};
+    sessionIdMap = {};
+    kickedSessionIds.clear();
+    if (currentPoll) {
+      pollHistory.push({
+        question: currentPoll.question,
+        options: currentPoll.options,
+        votes: currentPoll.votes,
+        correctIndex: currentPoll.correctIndex
+      });
+      currentPoll = null;
+      if (pollTimeout) clearTimeout(pollTimeout);
     }
-    delete teachers[socket.id];
-  });
+  }
+
+  if (participants[socket.id]) {
+    const sessionId = participants[socket.id].sessionId;
+    delete sessionIdMap[sessionId];
+    delete participants[socket.id];
+    io.emit('participants', getParticipantsList());
+
+    if (currentPoll && allStudentsVoted()) {
+      if (pollTimeout) clearTimeout(pollTimeout);
+      pollHistory.push({
+        question: currentPoll.question,
+        options: currentPoll.options,
+        votes: currentPoll.votes,
+        correctIndex: currentPoll.correctIndex
+      });
+      currentPoll = null;
+      io.emit('poll_ended');
+    }
+  }
+
+  delete teachers[socket.id];
+});
+
 });
 
 // Helper: Get participant list with name and sessionId
